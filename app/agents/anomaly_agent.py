@@ -125,14 +125,17 @@ class AnomalyDetectionAgent:
             normalized_score: Score between 0 and 1
             
         Returns:
-            Severity level: LOW, MEDIUM, HIGH
+            Severity level: NORMAL, LOW, MEDIUM, HIGH
         """
-        if normalized_score < ANOMALY_SEVERITY_THRESHOLDS["MEDIUM"]:
-            return "LOW"
-        elif normalized_score < ANOMALY_SEVERITY_THRESHOLDS["HIGH"]:
-            return "MEDIUM"
+        # More aggressive thresholds for better anomaly detection
+        if normalized_score < 0.08:
+            return "NORMAL"  # Very low anomaly score = normal reading
+        elif normalized_score < 0.25:
+            return "LOW"  # Minor deviation
+        elif normalized_score < 0.55:
+            return "MEDIUM"  # Moderate deviation
         else:
-            return "HIGH"
+            return "HIGH"  # Severe deviation
     
     def predict(self, composition: Dict[str, float]) -> Dict:
         """
@@ -169,8 +172,10 @@ class AnomalyDetectionAgent:
         severity = self._get_severity(normalized_score)
         
         # Generate explanation
-        if severity == "LOW":
+        if severity == "NORMAL":
             message = "Composition appears normal with expected characteristics."
+        elif severity == "LOW":
+            message = "Minor deviation detected. Reading is within acceptable variance."
         elif severity == "MEDIUM":
             message = "Moderate anomaly detected. Consider verifying sensor calibration."
         else:
