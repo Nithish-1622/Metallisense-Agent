@@ -88,7 +88,7 @@ echo 2. Test the API (in another terminal):
 echo    python test_api.py
 echo.
 echo 3. Access documentation:
-echo    http://localhost:8000/docs
+echo    http://localhost:8001/docs
 echo.
 echo To deactivate virtual environment:
 echo    deactivate

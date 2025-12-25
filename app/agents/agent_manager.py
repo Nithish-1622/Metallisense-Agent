@@ -78,7 +78,7 @@ class AgentManager:
         1. Check if anomaly detection should run (always)
         2. Run anomaly detection agent
         3. Check if alloy recommendation should run (conditional)
-        4. If HIGH severity, run alloy agent
+        4. If MEDIUM or HIGH severity, run alloy agent
         5. Aggregate results
         6. Add safety notes
         
@@ -118,7 +118,7 @@ class AgentManager:
             else:
                 print("  ✗ Invalid anomaly agent response")
         
-        # Step 2: Alloy Recommendation (CONDITIONAL on HIGH severity)
+        # Step 2: Alloy Recommendation (CONDITIONAL on MEDIUM or HIGH severity)
         if self.policy.should_recommend_alloy(
             anomaly_result=response.get("anomaly_agent"),
             grade=grade
@@ -138,12 +138,12 @@ class AgentManager:
             else:
                 print("  ✗ Invalid alloy agent response")
         else:
-            print("→ Alloy Correction Agent: SKIPPED (severity not HIGH)")
+            print("→ Alloy Correction Agent: SKIPPED (severity not MEDIUM/HIGH)")
             response["alloy_agent"] = {
                 "agent": "AlloyCorrectionAgent",
                 "recommended_additions": {},
                 "confidence": 0.0,
-                "explanation": "Not invoked - anomaly severity below threshold"
+                "explanation": "Not invoked - anomaly severity below threshold (must be MEDIUM or HIGH)"
             }
         
         # Step 3: Safety check

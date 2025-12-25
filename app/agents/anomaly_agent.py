@@ -37,6 +37,9 @@ class AnomalyDetectionAgent:
         self.scaler = StandardScaler()
         self.elements = ELEMENTS
         self.is_trained = False
+        # Store score statistics for deterministic predictions
+        self.score_min = None
+        self.score_max = None
         
     def prepare_features(self, df: pd.DataFrame) -> np.ndarray:
         """
@@ -89,6 +92,10 @@ class AnomalyDetectionAgent:
         train_scores = self.model.score_samples(X_scaled)
         train_predictions = self.model.predict(X_scaled)
         
+        # Store score statistics for deterministic predictions
+        self.score_min = float(train_scores.min())
+        self.score_max = float(train_scores.max())
+        
         num_anomalies = np.sum(train_predictions == -1)
         anomaly_rate = num_anomalies / len(df) * 100
         
@@ -127,12 +134,12 @@ class AnomalyDetectionAgent:
         Returns:
             Severity level: NORMAL, LOW, MEDIUM, HIGH
         """
-        # More aggressive thresholds for better anomaly detection
-        if normalized_score < 0.08:
+        # Fine-tuned thresholds for better anomaly detection
+        if normalized_score < 0.05:
             return "NORMAL"  # Very low anomaly score = normal reading
-        elif normalized_score < 0.25:
+        elif normalized_score < 0.20:
             return "LOW"  # Minor deviation
-        elif normalized_score < 0.55:
+        elif normalized_score < 0.50:
             return "MEDIUM"  # Moderate deviation
         else:
             return "HIGH"  # Severe deviation
@@ -157,16 +164,12 @@ class AnomalyDetectionAgent:
         # Get anomaly score
         raw_score = self.model.score_samples(X_scaled)[0]
         
-        # Get score statistics from training (approximate)
-        # In production, these should be stored during training
-        score_samples = self.model.score_samples(self.scaler.transform(
-            np.random.randn(1000, len(self.elements))
-        ))
-        score_min = score_samples.min()
-        score_max = score_samples.max()
+        # Use stored score statistics from training for deterministic predictions
+        if self.score_min is None or self.score_max is None:
+            raise ValueError("Score statistics not found. Model may need retraining.")
         
         # Normalize score
-        normalized_score = self._normalize_score(raw_score, score_min, score_max)
+        normalized_score = self._normalize_score(raw_score, self.score_min, self.score_max)
         
         # Determine severity
         severity = self._get_severity(normalized_score)
@@ -236,7 +239,9 @@ class AnomalyDetectionAgent:
             'model': self.model,
             'scaler': self.scaler,
             'elements': self.elements,
-            'is_trained': self.is_trained
+            'is_trained': self.is_trained,
+            'score_min': self.score_min,
+            'score_max': self.score_max
         }
         
         joblib.dump(model_data, filepath)
@@ -250,6 +255,8 @@ class AnomalyDetectionAgent:
         self.scaler = model_data['scaler']
         self.elements = model_data['elements']
         self.is_trained = model_data['is_trained']
+        self.score_min = model_data.get('score_min', None)
+        self.score_max = model_data.get('score_max', None)
         
         print(f"Model loaded from {filepath}")
     

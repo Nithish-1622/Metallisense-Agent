@@ -60,7 +60,7 @@ class DecisionPolicy:
         """
         Determine if alloy recommendation should be performed
         
-        Policy: Recommend alloy ONLY if anomaly severity is HIGH
+        Policy: Recommend alloy if anomaly severity is MEDIUM or HIGH
         
         Args:
             anomaly_result: Result from anomaly agent
@@ -75,8 +75,8 @@ class DecisionPolicy:
         # Extract severity
         severity = anomaly_result.get("severity", "LOW")
         
-        # Policy: Only invoke alloy agent for HIGH severity anomalies
-        if severity == SeverityLevel.HIGH.value:
+        # Policy: Invoke alloy agent for MEDIUM or HIGH severity anomalies
+        if severity in [SeverityLevel.MEDIUM.value, SeverityLevel.HIGH.value]:
             return True
         
         return False

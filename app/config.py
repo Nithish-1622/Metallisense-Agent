@@ -34,7 +34,7 @@ NORMAL_RATIO = 0.65  # 65% normal samples
 DEVIATED_RATIO = 0.35  # 35% deviated samples
 
 # Model training parameters
-ANOMALY_CONTAMINATION = 0.15  # Expected proportion of outliers (more sensitive detection)
+ANOMALY_CONTAMINATION = 0.05  # Expected proportion of outliers (highly sensitive detection - only 5% expected anomalies)
 RANDOM_STATE = 42
 
 # API settings

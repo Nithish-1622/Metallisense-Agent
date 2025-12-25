@@ -20,10 +20,10 @@ echo Activating virtual environment...
 call venv\Scripts\activate.bat
 
 echo.
-echo Starting API service on http://localhost:8000
+echo Starting API service on http://localhost:8001
 echo Press Ctrl+C to stop the service
 echo.
-echo API Documentation: http://localhost:8000/docs
+echo API Documentation: http://localhost:8001/docs
 echo ========================================
 echo.
 
