@@ -42,7 +42,7 @@ ai-service/
 
 ## 🧠 AI Agents Implemented
 
-### Agent 3: Anomaly Detection Agent
+### Agent 1: Anomaly Detection Agent
 - **Model**: Isolation Forest (unsupervised learning)
 - **Purpose**: Detect abnormal spectrometer behavior
 - **Features**:
@@ -53,7 +53,7 @@ ai-service/
   - Normalized anomaly scores (0-1)
 - **Does NOT**: Decide if metal is PASS/FAIL
 
-### Agent 4: Alloy Correction Agent
+### Agent 2: Alloy Correction Agent
 - **Model**: Multi-Output Gradient Boosting Regressor
 - **Purpose**: Recommend alloy additions to correct deviations
 - **Features**:
