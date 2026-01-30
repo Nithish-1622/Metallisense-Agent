@@ -10,6 +10,7 @@ MetalliSense AI Service implements a **production-grade agentic architecture** t
 
 1. **Anomaly Detection Agent**: Detects abnormal spectrometer behavior
 2. **Alloy Correction Agent**: Recommends corrective alloy additions
+3. **🆕 Explainable AI Copilot**: Natural language explanations with voice interface
 
 ### 🔐 Safety Principles
 
@@ -28,12 +29,18 @@ MetalliSense AI Service implements a **production-grade agentic architecture** t
 - ⚡ FastAPI with async support
 - 🔄 Seamless Node.js integration
 - 📊 Physics-aware synthetic data generation
-- 🚫 No LLM dependencies
+- 🚫 No LLM dependencies for core ML
 - 📝 Comprehensive logging and audit trails
+- **🆕 Explainable AI Copilot**:
+  - 💬 Natural language explanations via Groq LLM
+  - 🎤 Voice input (Speech-to-Text)
+  - 🔊 Voice output (Text-to-Speech)
+  - 🌍 Multi-language support (12 languages)
+  - 💭 Interactive chatbot with conversation history
 
 ## Architecture
 
-### Agent-Based Architecture
+### Agent-Based Architecture with Explainable AI
 
 ```
 ┌─────────────────────────────────────────────────────────┐
@@ -46,6 +53,15 @@ MetalliSense AI Service implements a **production-grade agentic architecture** t
 └───────────────────────┬─────────────────────────────────┘
                         │
                         ▼
+┌─────────────────────────────────────────────────────────┐
+│          EXPLAINABLE AI COPILOT (NEW) 🆕                │
+│  • Groq LLM (llama-3.3-70b-versatile)                   │
+│  • Natural Language Explanations                        │
+│  • Interactive Chatbot                                  │
+│  • Voice Interface (STT/TTS)                            │
+└──────────────┬──────────────────────────────────────────┘
+               │
+               ▼
 ┌─────────────────────────────────────────────────────────┐
 │              AGENT MANAGER (Python)                     │
 │  • Orchestration Logic                                  │
@@ -68,9 +84,14 @@ MetalliSense AI Service implements a **production-grade agentic architecture** t
 ```
 ai-service/
 ├── app/
-│   ├── main.py                      # FastAPI with agent endpoints
-│   ├── config.py                    # Configuration
+│   ├── main.py                      # FastAPI with agent & copilot endpoints
+│   ├── config.py                    # Configuration (with Groq API key)
 │   ├── schemas.py                   # Request/response schemas
+│   │
+│   ├── copilot/                     # 🆕 Explainable AI Copilot
+│   │   ├── groq_explainer.py        # LLM integration
+│   │   ├── voice_service.py         # STT/TTS services
+│   │   └── schemas.py               # Copilot schemas
 │   │
 │   ├── agents/
 │   │   ├── anomaly_agent.py         # ML model (trained)
@@ -239,11 +260,41 @@ python app/training/train_alloy_agent.py
 
 ### 3. Start API Service
 
+**Standard Start:**
 ```bash
 python app/main.py
 ```
 
-The API will be available at `http://localhost:8000`
+**With Explainable AI Copilot (🆕 NEW):**
+
+First, set your Groq API key:
+```bash
+# Windows PowerShell
+$env:GROQ_API_KEY="your_groq_api_key_here"
+
+# Windows CMD
+set GROQ_API_KEY=your_groq_api_key_here
+
+# Linux/Mac
+export GROQ_API_KEY="your_groq_api_key_here"
+```
+
+Then start the service:
+```bash
+python app/main.py
+```
+
+The API will be available at `http://localhost:8001`
+
+**Copilot Features:**
+- 💬 Natural language explanations
+- 🎤 Voice input (Speech-to-Text)
+- 🔊 Voice output (Text-to-Speech)
+- 💭 Interactive chatbot
+
+> **Get Groq API Key:** https://console.groq.com/keys (free tier available)
+> 
+> **Full Setup Guide:** See [DOCS/COPILOT_SETUP.md](DOCS/COPILOT_SETUP.md)
 
 ## API Endpoints
 
@@ -266,7 +317,71 @@ Content-Type: application/json
   },
   "grade": "SG-IRON"
 }
-```     
+```
+
+### 🆕 Explainable AI Copilot Endpoints
+
+#### Get Explanation
+```http
+POST /copilot/explain
+Content-Type: application/json
+
+{
+  "composition": {"Fe": 94.5, "C": 3.2, "Si": 2.0, "Mn": 0.4, "P": 0.05, "S": 0.10},
+  "grade": "GREY-IRON"
+}
+```
+
+Response:
+```json
+{
+  "explanation": "Analysis shows HIGH severity anomaly (score: 0.87)...",
+  "summary": "HIGH severity anomaly. Immediate correction required.",
+  "action_items": [
+    "Add 0.22% Silicon",
+    "Add 0.15% Manganese",
+    "Re-test after additions"
+  ],
+  "risk_level": "HIGH",
+  "confidence": 0.93
+}
+```
+
+#### Interactive Chat
+```http
+POST /copilot/chat
+Content-Type: application/json
+
+{
+  "message": "Why do we need to add Manganese?",
+  "include_context": true
+}
+```
+
+#### Voice Transcription (Speech-to-Text)
+```http
+POST /copilot/voice/transcribe
+Content-Type: multipart/form-data
+
+audio=@recording.wav
+language=en
+```
+
+#### Voice Synthesis (Text-to-Speech)
+```http
+POST /copilot/voice/synthesize
+Content-Type: application/json
+
+{
+  "text": "Silicon addition is recommended",
+  "language": "en",
+  "slow": false
+}
+```
+
+**Complete API Documentation:** See [DOCS/COPILOT_API_REFERENCE.md](DOCS/COPILOT_API_REFERENCE.md)
+
+---     
 
 **Response:**
 ```json

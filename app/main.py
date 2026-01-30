@@ -1,13 +1,17 @@
+
 """
 MetalliSense AI Service - FastAPI Application
 Main entry point for the AI Intelligence Layer
 """
-from fastapi import FastAPI, HTTPException, status
+from fastapi import FastAPI, HTTPException, status, File, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 import uvicorn
 from pathlib import Path
 import sys
+from typing import Optional
+import tempfile
+import os
 
 # Add app directory to path
 sys.path.append(str(Path(__file__).parent))
@@ -26,6 +30,18 @@ from schemas import (
 from inference.anomaly_predict import get_anomaly_predictor
 from inference.alloy_predict import get_alloy_predictor
 from agents.agent_manager import get_agent_manager
+
+# Copilot imports
+from copilot import get_copilot, get_voice_service
+from copilot.schemas import (
+    ExplainAnalysisRequest,
+    ExplainAnalysisResponse,
+    ChatRequest,
+    ChatResponse,
+    TTSRequest,
+    TranscriptionResponse,
+    LanguagesResponse
+)
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -49,11 +65,13 @@ app.add_middleware(
 anomaly_predictor = None
 alloy_predictor = None
 agent_manager = None
+copilot = None
+voice_service = None
 
 
 def initialize_models():
     """Initialize AI models on startup"""
-    global anomaly_predictor, alloy_predictor, agent_manager
+    global anomaly_predictor, alloy_predictor, agent_manager, copilot, voice_service
     
     try:
         print("Initializing AI models...")
@@ -64,6 +82,14 @@ def initialize_models():
         print("Initializing Agent Manager...")
         agent_manager = get_agent_manager()
         print("✓ Agent Manager initialized")
+        
+        print("Initializing Explainable AI Copilot...")
+        copilot = get_copilot()
+        print("✓ Copilot initialized")
+        
+        print("Initializing Voice Service...")
+        voice_service = get_voice_service()
+        print("✓ Voice Service initialized")
         
         return True
     except Exception as e:
@@ -99,6 +125,10 @@ async def root():
             "agent_analysis": "/agents/analyze",
             "anomaly_detection": "/anomaly/predict",
             "alloy_correction": "/alloy/recommend",
+            "copilot_explain": "/copilot/explain",
+            "copilot_chat": "/copilot/chat",
+            "copilot_voice_transcribe": "/copilot/voice/transcribe",
+            "copilot_voice_synthesize": "/copilot/voice/synthesize",
             "grades": "/grades",
             "docs": "/docs"
         }
@@ -114,7 +144,9 @@ async def health_check():
     models_loaded = {
         "anomaly_model": anomaly_predictor is not None and anomaly_predictor.is_healthy(),
         "alloy_model": alloy_predictor is not None and alloy_predictor.is_healthy(),
-        "agent_manager": agent_manager is not None and agent_manager.is_ready()
+        "agent_manager": agent_manager is not None and agent_manager.is_ready(),
+        "copilot": copilot is not None,
+        "voice_service": voice_service is not None
     }
     
     all_healthy = all(models_loaded.values())
@@ -386,6 +418,316 @@ async def get_grade_specification(grade: str):
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error retrieving grade specification: {str(e)}"
+        )
+
+
+# ============================================================================
+# COPILOT ENDPOINTS (Explainable AI with Groq LLM)
+# ============================================================================
+
+@app.post("/copilot/explain", response_model=ExplainAnalysisResponse, tags=["Copilot"])
+async def explain_analysis(request: ExplainAnalysisRequest, include_voice: bool = False):
+    """
+    🤖 EXPLAINABLE AI - Get human explanation for ML predictions
+    
+    Takes composition and grade, runs full agent analysis, and generates
+    human-readable explanation using Groq LLM.
+    
+    This endpoint:
+    ✅ Runs anomaly detection
+    ✅ Runs alloy correction (if needed)
+    ✅ Generates natural language explanation
+    ✅ Provides risk assessment
+    ✅ Gives operator action items
+    
+    Request:
+    ```json
+    {
+        "composition": {"Fe": 94.5, "C": 3.2, "Si": 2.0, "Mn": 0.4, "P": 0.05, "S": 0.10},
+        "grade": "GREY-IRON"
+    }
+    ```
+    
+    Response includes:
+    - Full explanation text (human-readable)
+    - Brief summary
+    - Action items for operators
+    - Risk level assessment
+    - Confidence score
+    - Analysis context (ML predictions)
+    
+    🔐 Safety:
+    - Explanations are advisory only
+    - Human approval ALWAYS required
+    - All recommendations logged
+    """
+    if copilot is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Explainable AI Copilot not initialized"
+        )
+    
+    if agent_manager is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Agent Manager not initialized"
+        )
+    
+    try:
+        # Run agent analysis first
+        composition = request.composition
+        grade = request.grade
+        
+        agent_result = agent_manager.analyze(composition, grade)
+        
+        # Generate explanation
+        explanation_result = copilot.explain_analysis(
+            composition=composition,
+            grade=grade,
+            anomaly_result=agent_result.get("anomaly_agent"),
+            alloy_result=agent_result.get("alloy_agent")
+        )
+        
+        return ExplainAnalysisResponse(**explanation_result)
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Explanation generation error: {str(e)}"
+        )
+
+
+@app.post("/copilot/chat", response_model=ChatResponse, tags=["Copilot"])
+async def chat_with_copilot(request: ChatRequest):
+    """
+    💬 CHATBOT - Interactive Q&A with AI Copilot
+    
+    Ask questions about the latest analysis, metallurgical concepts,
+    or get clarification on recommendations.
+    
+    Examples:
+    - "Why do we need to add Manganese?"
+    - "What happens if we don't correct this?"
+    - "Explain the risk level"
+    - "What is the confidence score?"
+    
+    The copilot maintains conversation history and can reference
+    previous questions and the latest analysis context.
+    
+    Request:
+    ```json
+    {
+        "message": "Why do we need to add Manganese?",
+        "include_context": true
+    }
+    ```
+    
+    Response:
+    ```json
+    {
+        "response": "Manganese is recommended because...",
+        "conversation_id": "12345"
+    }
+    ```
+    """
+    if copilot is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Explainable AI Copilot not initialized"
+        )
+    
+    try:
+        response = copilot.chat(
+            user_message=request.message,
+            include_context=request.include_context
+        )
+        
+        return ChatResponse(**response)
+    
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Chat error: {str(e)}"
+        )
+
+
+@app.delete("/copilot/chat/history", tags=["Copilot"])
+async def clear_chat_history():
+    """
+    🗑️ Clear conversation history
+    
+    Clears the conversation history for a fresh start.
+    Useful when starting a new analysis session.
+    """
+    if copilot is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Explainable AI Copilot not initialized"
+        )
+    
+    try:
+        copilot.clear_history()
+        return {"message": "Conversation history cleared", "success": True}
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error clearing history: {str(e)}"
+        )
+
+
+@app.post("/copilot/voice/transcribe", response_model=TranscriptionResponse, tags=["Voice"])
+async def transcribe_audio(audio: UploadFile = File(...), language: Optional[str] = None):
+    """
+    🎤 SPEECH-TO-TEXT - Convert voice input to text
+    
+    Upload audio file and get transcribed text.
+    Uses Groq Whisper large-v3 model for high accuracy.
+    
+    Supported formats: WAV, MP3, M4A, OGG, FLAC
+    
+    Example usage:
+    ```bash
+    curl -X POST "http://localhost:8001/copilot/voice/transcribe" \
+         -F "audio=@recording.wav" \
+         -F "language=en"
+    ```
+    
+    Response:
+    ```json
+    {
+        "text": "Why do we need to add manganese?",
+        "language": "en",
+        "success": true
+    }
+    ```
+    """
+    if voice_service is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Voice Service not initialized"
+        )
+    
+    try:
+        # Save uploaded file temporarily
+        with tempfile.NamedTemporaryFile(delete=False, suffix=Path(audio.filename).suffix) as tmp:
+            content = await audio.read()
+            tmp.write(content)
+            tmp_path = tmp.name
+        
+        try:
+            # Transcribe
+            result = voice_service.transcribe_audio(tmp_path, language)
+            return TranscriptionResponse(**result)
+        finally:
+            # Clean up temp file
+            if os.path.exists(tmp_path):
+                os.unlink(tmp_path)
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Transcription error: {str(e)}"
+        )
+
+
+@app.post("/copilot/voice/synthesize", tags=["Voice"])
+async def synthesize_speech(request: TTSRequest):
+    """
+    🔊 TEXT-TO-SPEECH - Convert text to voice
+    
+    Convert text to speech audio (MP3 format).
+    Uses Google Text-to-Speech (gTTS) for natural voice output.
+    
+    Request:
+    ```json
+    {
+        "text": "Manganese addition of 0.15% is recommended to improve tensile strength.",
+        "language": "en",
+        "slow": false
+    }
+    ```
+    
+    Returns: MP3 audio file
+    
+    Supported languages: en, es, fr, de, it, pt, ru, ja, ko, zh, hi, ar
+    
+    Example usage in browser:
+    ```javascript
+    const response = await fetch('/copilot/voice/synthesize', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({text: "Hello", language: "en"})
+    });
+    const blob = await response.blob();
+    const audio = new Audio(URL.createObjectURL(blob));
+    audio.play();
+    ```
+    """
+    if voice_service is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Voice Service not initialized"
+        )
+    
+    try:
+        audio_bytes = voice_service.text_to_speech(
+            text=request.text,
+            language=request.language,
+            slow=request.slow
+        )
+        
+        return Response(
+            content=audio_bytes,
+            media_type="audio/mpeg",
+            headers={
+                "Content-Disposition": "inline; filename=speech.mp3"
+            }
+        )
+    
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Speech synthesis error: {str(e)}"
+        )
+
+
+@app.get("/copilot/voice/languages", response_model=LanguagesResponse, tags=["Voice"])
+async def get_supported_languages():
+    """
+    🌍 Get supported languages for voice services
+    
+    Returns list of language codes and names supported
+    by both Speech-to-Text and Text-to-Speech services.
+    
+    Response:
+    ```json
+    {
+        "languages": {
+            "en": "English",
+            "es": "Spanish",
+            "fr": "French",
+            ...
+        }
+    }
+    ```
+    """
+    if voice_service is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Voice Service not initialized"
+        )
+    
+    try:
+        languages = voice_service.get_supported_languages()
+        return LanguagesResponse(languages=languages)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error retrieving languages: {str(e)}"
         )
 
 

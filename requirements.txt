@@ -39,3 +39,8 @@ python-dotenv==1.0.0
 
 # Optional: Enhanced logging (compatible with Python 3.11)
 colorlog==6.8.2
+# Explainable AI - Groq LLM Integration
+groq==0.11.0
+
+# Voice Services
+gTTS==2.5.1

@@ -3,6 +3,10 @@ Configuration settings for MetalliSense AI Service
 """
 import os
 from pathlib import Path
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Base directories
 BASE_DIR = Path(__file__).parent
@@ -46,3 +50,12 @@ API_VERSION = "1.0.0"
 # Safety constraints
 MAX_ADDITION_PERCENTAGE = 5.0  # Maximum 5% addition of any element
 MIN_CONFIDENCE_THRESHOLD = 0.5  # Minimum confidence to provide recommendations
+# Groq API Configuration (for Explainable AI Copilot)
+GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")  # Set via environment variable
+GROQ_MODEL = "llama-3.3-70b-versatile"  # Groq's reasoning model
+GROQ_TEMPERATURE = 0.3  # Low temperature for consistent technical explanations
+GROQ_MAX_TOKENS = 2000  # Maximum tokens for response
+
+# Voice Service Configuration
+TTS_LANGUAGE = "en"  # Default language for text-to-speech
+TTS_SLOW = False  # Normal speed by default
