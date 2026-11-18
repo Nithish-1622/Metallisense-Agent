@@ -52,10 +52,16 @@ MAX_ADDITION_PERCENTAGE = 5.0  # Maximum 5% addition of any element
 MIN_CONFIDENCE_THRESHOLD = 0.5  # Minimum confidence to provide recommendations
 # Groq API Configuration (for Explainable AI Copilot)
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")  # Set via environment variable
-GROQ_MODEL = "llama-3.3-70b-versatile"  # Groq's reasoning model
+GROQ_MODEL = os.getenv("GROQ_MODEL", "openai/gpt-oss-20b")
 GROQ_TEMPERATURE = 0.3  # Low temperature for consistent technical explanations
 GROQ_MAX_TOKENS = 2000  # Maximum tokens for response
 
 # Voice Service Configuration
 TTS_LANGUAGE = "en"  # Default language for text-to-speech
 TTS_SLOW = False  # Normal speed by default
+STT_PROVIDER = os.getenv("STT_PROVIDER", "gnani").strip().lower()
+TTS_PROVIDER = os.getenv("TTS_PROVIDER", "gnani").strip().lower()
+GNANI_API_KEY = os.getenv("GNANI_API_KEY", "")
+GNANI_BASE_URL = os.getenv("GNANI_BASE_URL", "https://api.vachana.ai")
+GNANI_STT_URL = os.getenv("GNANI_STT_URL", "")
+GNANI_TTS_URL = os.getenv("GNANI_TTS_URL", "")
