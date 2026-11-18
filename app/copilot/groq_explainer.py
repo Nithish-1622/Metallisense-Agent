@@ -36,7 +36,7 @@ class ExplainableAICopilot:
             )
         
         self.client = Groq(api_key=self.api_key)
-        self.model = "llama-3.3-70b-versatile"  # Groq's powerful reasoning model
+        self.model = os.getenv("GROQ_MODEL", "openai/gpt-oss-20b")
         self.conversation_history = []
     
     def explain_analysis(
@@ -153,22 +153,34 @@ class ExplainableAICopilot:
     
     def _build_analysis_context(
         self,
-        composition: Dict[str, float],
+        composition,
         grade: str,
-        anomaly_result: Dict,
-        alloy_result: Dict
+        anomaly_result,
+        alloy_result
     ) -> Dict:
-        """Build structured context for LLM"""
+        """Build a JSON-safe context for the LLM."""
+        if hasattr(composition, "model_dump"):
+            composition = composition.model_dump()
+        elif hasattr(composition, "dict"):
+            composition = composition.dict()
+
+        anomaly_result = anomaly_result or {}
+        alloy_result = alloy_result or {}
+
+        anomaly_score = anomaly_result.get("anomaly_score", 0.0)
+        anomaly_confidence = anomaly_result.get("confidence", 0.0)
+        alloy_confidence = alloy_result.get("confidence", 0.0)
+
         return {
-            "composition": composition,
-            "grade": grade,
+            "composition": dict(composition or {}),
+            "grade": str(grade),
             "anomaly": {
-                "score": anomaly_result.get('anomaly_score', 0),
-                "severity": anomaly_result.get('severity', 'UNKNOWN'),
-                "confidence": anomaly_result.get('confidence', 0)
+                "score": float(anomaly_score or 0.0),
+                "severity": str(anomaly_result.get("severity", "UNKNOWN") or "UNKNOWN"),
+                "confidence": float(anomaly_confidence or 0.0)
             },
-            "alloy_recommendations": alloy_result.get('recommended_additions', {}),
-            "alloy_confidence": alloy_result.get('confidence', 0)
+            "alloy_recommendations": dict(alloy_result.get("recommended_additions", {}) or {}),
+            "alloy_confidence": float(alloy_confidence or 0.0)
         }
     
     def _get_system_prompt(self) -> str:
