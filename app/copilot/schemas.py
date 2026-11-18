@@ -58,12 +58,16 @@ class TTSRequest(BaseModel):
     )
     language: str = Field(
         default="en",
-        description="Language code",
+        description="Language code: en, ta, te, or hi",
         example="en"
     )
     slow: bool = Field(
         default=False,
-        description="Speak slowly"
+        description="Speak more slowly"
+    )
+    voice: Optional[str] = Field(
+        default=None,
+        description="Optional neural voice name"
     )
 
 
@@ -76,5 +80,5 @@ class TranscriptionResponse(BaseModel):
 
 
 class LanguagesResponse(BaseModel):
-    """Supported languages"""
-    languages: Dict[str, str] = Field(..., description="Language code to name mapping")
+    """Supported languages and neural voices"""
+    languages: Dict[str, Dict] = Field(..., description="Language metadata and available human voices")
