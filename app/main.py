@@ -474,8 +474,8 @@ async def explain_analysis(request: ExplainAnalysisRequest, include_voice: bool 
         )
     
     try:
-        # Run agent analysis first
-        composition = request.composition
+        # Run agent analysis first with JSON-safe plain dictionaries
+        composition = dict(request.composition)
         grade = request.grade
         
         agent_result = agent_manager.analyze(composition, grade)
@@ -493,9 +493,12 @@ async def explain_analysis(request: ExplainAnalysisRequest, include_voice: bool 
     except HTTPException:
         raise
     except Exception as e:
+        import traceback
+        print("Explain endpoint traceback:")
+        traceback.print_exc()
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Explanation generation error: {str(e)}"
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Explainable AI provider error: {type(e).__name__}: {str(e)}"
         )
 
 
@@ -610,6 +613,13 @@ async def transcribe_audio(audio: UploadFile = File(...), language: Optional[str
         )
     
     try:
+        effective_language = (language or "en").strip().lower()
+        if effective_language not in {"en", "ta", "te", "hi"}:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Unsupported language. Choose en, ta, te, or hi."
+            )
+
         # Save uploaded file temporarily
         with tempfile.NamedTemporaryFile(delete=False, suffix=Path(audio.filename).suffix) as tmp:
             content = await audio.read()
@@ -618,7 +628,7 @@ async def transcribe_audio(audio: UploadFile = File(...), language: Optional[str
         
         try:
             # Transcribe
-            result = voice_service.transcribe_audio(tmp_path, language)
+            result = voice_service.transcribe_audio(tmp_path, effective_language)
             return TranscriptionResponse(**result)
         finally:
             # Clean up temp file
@@ -674,10 +684,17 @@ async def synthesize_speech(request: TTSRequest):
         )
     
     try:
+        if request.language.lower() not in {"en", "ta", "te", "hi"}:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Unsupported language. Choose en, ta, te, or hi."
+            )
+
         audio_bytes = voice_service.text_to_speech(
             text=request.text,
             language=request.language,
-            slow=request.slow
+            slow=request.slow,
+            voice=request.voice
         )
         
         return Response(
@@ -688,6 +705,13 @@ async def synthesize_speech(request: TTSRequest):
             }
         )
     
+    except HTTPException:
+        raise
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -763,6 +787,6 @@ if __name__ == "__main__":
         "main:app",
         host=API_HOST,
         port=API_PORT,
-        reload=True,  # Enable auto-reload during development
+        reload=False,
         log_level="info"
     )
