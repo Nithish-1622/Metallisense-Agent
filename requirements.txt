@@ -44,3 +44,4 @@ groq==0.11.0
 
 # Voice Services
 gTTS==2.5.1
+edge-tts==7.3.1
